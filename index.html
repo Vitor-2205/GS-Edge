@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard Educacional - MQTT</title>
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <!-- MQTT.js -->
+  <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+
+  <style>
+    @import url("https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap");
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: "Poppins", sans-serif;
+      background: radial-gradient(circle at top left, #141e30, #243b55);
+      color: #fff;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    header {
+      text-align: center;
+      padding: 30px 20px 10px;
+      animation: fadeIn 1.2s ease-in-out;
+    }
+
+    header h1 {
+      font-size: 2.5rem;
+      margin: 0;
+      background: linear-gradient(45deg, #00c6ff, #0072ff);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    header p {
+      color: #b0c7ff;
+      font-size: 1.1rem;
+      margin-top: 5px;
+    }
+
+    #status {
+      margin: 15px;
+      font-size: 0.95rem;
+      color: #9be3ff;
+      font-weight: 500;
+      letter-spacing: 0.5px;
+      text-shadow: 0 0 5px #0099ff;
+    }
+
+    .container {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 25px;
+      width: 90%;
+      max-width: 1200px;
+      padding: 20px;
+    }
+
+    .card {
+      background: rgba(255, 255, 255, 0.07);
+      border-radius: 20px;
+      padding: 25px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+      backdrop-filter: blur(10px);
+      transition: transform 0.3s, box-shadow 0.3s;
+    }
+
+    .card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 15px 40px rgba(0, 0, 0, 0.6);
+    }
+
+    .card h3 {
+      margin: 0;
+      color: #9be3ff;
+      font-weight: 600;
+      font-size: 1.3rem;
+      letter-spacing: 0.5px;
+    }
+
+    .valor {
+      font-size: 2.5rem;
+      margin: 15px 0;
+      font-weight: bold;
+      color: #ffffff;
+      text-shadow: 0 0 10px rgba(0, 198, 255, 0.6);
+    }
+
+    canvas {
+      width: 100%;
+      height: 180px;
+    }
+
+    footer {
+      text-align: center;
+      padding: 20px;
+      color: #7ba7ff;
+      font-size: 0.9rem;
+      opacity: 0.8;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>📊 Dashboard de Análise Educacional</h1>
+    <p>Monitoramento em tempo real via MQTT (Mosquitto)</p>
+  </header>
+
+  <div id="status">Conectando ao broker MQTT...</div>
+
+  <div class="container">
+    <div class="card">
+      <h3>Aprendizado Automatizado</h3>
+      <div id="aprendizado" class="valor">--</div>
+      <canvas id="chart1"></canvas>
+    </div>
+
+    <div class="card">
+      <h3>Feedback em Tempo Real</h3>
+      <div id="feedback" class="valor">--</div>
+      <canvas id="chart2"></canvas>
+    </div>
+
+    <div class="card">
+      <h3>Gamificação</h3>
+      <div id="gamificacao" class="valor">--</div>
+      <canvas id="chart3"></canvas>
+    </div>
+  </div>
+
+  <footer>© 2025 - Dashboard Educacional MQTT</footer>
+
+  <script>
+    // --- CONFIGURAÇÃO MQTT ---
+    const broker = "wss://test.mosquitto.org:8081"; // Porta WebSocket
+    const topic = "gsEdge/analise/dados";
+
+    const client = mqtt.connect(broker);
+    const statusEl = document.getElementById("status");
+
+    // ELEMENTOS
+    const aprendizadoEl = document.getElementById("aprendizado");
+    const feedbackEl = document.getElementById("feedback");
+    const gamificacaoEl = document.getElementById("gamificacao");
+
+    // --- FUNÇÃO PARA CRIAR GRÁFICO ---
+    function createChart(ctx, color, label) {
+      return new Chart(ctx, {
+        type: "line",
+        data: {
+          labels: [],
+          datasets: [
+            {
+              label,
+              data: [],
+              borderColor: color,
+              backgroundColor: color + "33",
+              fill: true,
+              tension: 0.35,
+              borderWidth: 2,
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { display: false },
+            y: {
+              beginAtZero: true,
+              suggestedMax: 100,
+              grid: { color: "rgba(255,255,255,0.1)" },
+              ticks: { color: "#b0c7ff" },
+            },
+          },
+        },
+      });
+    }
+
+    // --- CRIA OS GRÁFICOS ---
+    const chart1 = createChart(document.getElementById("chart1"), "#00c6ff", "Aprendizado");
+    const chart2 = createChart(document.getElementById("chart2"), "#ffcd56", "Feedback");
+    const chart3 = createChart(document.getElementById("chart3"), "#ff6384", "Gamificação");
+
+    // --- CONEXÃO MQTT ---
+    client.on("connect", () => {
+      statusEl.textContent = "✅ Conectado ao broker MQTT!";
+      client.subscribe(topic);
+      console.log("Conectado ao tópico:", topic);
+    });
+
+    client.on("message", (t, message) => {
+      if (t === topic) {
+        const dados = JSON.parse(message.toString());
+        console.log("📩 Dados recebidos:", dados);
+
+        aprendizadoEl.textContent = dados.aprendizado_automatizado.toFixed(1);
+        feedbackEl.textContent = dados.feedback_tempo_real.toFixed(1);
+        gamificacaoEl.textContent = dados.gamificacao.toFixed(1);
+
+        const time = new Date().toLocaleTimeString();
+
+        function updateChart(chart, value) {
+          chart.data.labels.push(time);
+          chart.data.datasets[0].data.push(value);
+          if (chart.data.labels.length > 15) {
+            chart.data.labels.shift();
+            chart.data.datasets[0].data.shift();
+          }
+          chart.update();
+        }
+
+        updateChart(chart1, dados.aprendizado_automatizado);
+        updateChart(chart2, dados.feedback_tempo_real);
+        updateChart(chart3, dados.gamificacao);
+      }
+    });
+
+    client.on("reconnect", () => {
+      statusEl.textContent = "🔄 Reconectando ao broker MQTT...";
+    });
+
+    client.on("error", (err) => {
+      console.error("Erro MQTT:", err);
+      statusEl.textContent = "❌ Erro de conexão MQTT";
+    });
+  </script>
+</body>
+</html>
